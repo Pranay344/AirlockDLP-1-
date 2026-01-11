@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Airlock DLP",
+  "version": "1.0.0",
+  "description": "A security-first DLP extension to prevent sensitive data exfiltration.",
+  "permissions": ["storage", "scripting", "offscreen"],
+  "host_permissions": [
+    "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "https://gemini.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": ["content-scripts/main.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["content-scripts/modal.css"],
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*"
+      ]
+    }
+  ]
+}
