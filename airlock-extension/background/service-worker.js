@@ -6,37 +6,52 @@ console.log("🛡️ Airlock Service Worker: Initialized for one-time messaging.
 let isAnalysisRunning = false;
 const analysisQueue = [];
 
-// --- Analysis Logic (REFACTORED FOR MULTIPLE FINDINGS) ---
+// --- Analysis Logic (FINAL, ROBUST FIX) ---
 
 function analyzeTextLocally(text) {
     let findings = [];
 
-    // For DLP patterns (Regex) - find ALL matches
+    // 1. Regex-based DLP patterns
     for (const [type, pattern] of Object.entries(DLP_PATTERNS)) {
-        // Create a new global version of the pattern to find all matches
         const globalPattern = new RegExp(pattern.source, 'gi');
         for (const match of text.matchAll(globalPattern)) {
             findings.push({
                 type,
-                // The finding description for the modal
                 finding: `Detected a potential ${type.replace(/_/g, ' ')}`,
-                // The exact text that was matched, for precise redaction
                 matchedText: match[0]
             });
         }
     }
 
-    // For sensitive keywords (simple string search)
-    for (const keyword of SENSITIVE_KEYWORDS) {
-        if (text.toLowerCase().includes(keyword)) {
-            // This is a simplification but better than nothing.
-            // A full implementation would find all occurrences of keywords too.
-            findings.push({ type: 'keyword', finding: `Detected sensitive keyword: ${keyword}`, matchedText: keyword });
+    // 2. Contextual Keyword Analysis (SIMPLIFIED & MORE ROBUST)
+    const keywordRegex = new RegExp(`\\b(${SENSITIVE_KEYWORDS.join('|')})\\b`, 'gi');
+    const secretLikeRegex = /[\w\/\-\+\$]{20,}/; // A secret is likely a long string of characters, now including `$`
+
+    // Process the text as a single block, not line-by-line
+    for (const keywordMatch of text.matchAll(keywordRegex)) {
+        const keyword = keywordMatch[0];
+        const startIndex = keywordMatch.index + keyword.length;
+        
+        // Search the text immediately following the keyword
+        const searchArea = text.substring(startIndex, startIndex + 150); // Look within a reasonable distance
+
+        const secretMatch = searchArea.match(secretLikeRegex);
+        
+        if (secretMatch) {
+            // Ensure we don't re-add a finding that a DLP pattern already caught
+            const isAlreadyFound = findings.some(f => f.matchedText === secretMatch[0]);
+            if (!isAlreadyFound) {
+                 findings.push({
+                    type: `keyword_${keyword}`,
+                    finding: `Detected value associated with keyword: "${keyword}"`,
+                    matchedText: secretMatch[0]
+                });
+            }
         }
     }
+    
     return findings;
 }
-
 
 function performNerAnalysis(text) {
     return new Promise(async (resolve, reject) => {
@@ -90,20 +105,15 @@ function redactText(text, findings) {
     let redactedText = text;
     const redactionMap = new Map();
 
-    // Create a map from the matched text to its finding type.
-    // This ensures we only process each unique piece of sensitive text once.
     for (const finding of findings) {
         if (finding.matchedText && !redactionMap.has(finding.matchedText)) {
             redactionMap.set(finding.matchedText, finding.type);
         }
     }
 
-    // Iterate over the unique findings and replace them in the text.
     for (const [matched, type] of redactionMap.entries()) {
-        // Escape any special regex characters in the matched string to prevent errors.
-        const escapedText = matched.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedText = matched.replace(/[.*+?^${}()|[\]\/]/g, '\\$&');
         const regex = new RegExp(escapedText, 'g');
-        // Use the finding 'type' to create a more descriptive redaction.
         redactedText = redactedText.replace(regex, `[REDACTED_${type.toUpperCase()}]`);
     }
 
@@ -122,10 +132,12 @@ async function processQueue() {
 
     try {
         console.log("Airlock: Processing next item from queue.");
-        // We still use the dummy NER worker for now
         const [localFindings, nerFindings] = await Promise.all([
             analyzeTextLocally(request.promptText),
-            performNerAnalysis(request.promptText)
+            performNerAnalysis(request.promptText).catch(e => { 
+                console.warn("NER analysis failed, proceeding without it.", e);
+                return []; // Return empty array on NER failure
+            })
         ]);
 
         const allFindings = [...localFindings, ...nerFindings].filter(Boolean);
@@ -134,7 +146,6 @@ async function processQueue() {
         if (allFindings.length === 0) {
             response = { decision: "allow" };
         } else {
-            // Get unique reasons for the modal display
             const reasons = [...new Set(allFindings.map(f => f.finding))];
             const redactedPrompt = redactText(request.promptText, allFindings);
             response = { decision: "redact", reasons, redactedText: redactedPrompt };
