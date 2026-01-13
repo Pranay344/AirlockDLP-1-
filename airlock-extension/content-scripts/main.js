@@ -1,4 +1,4 @@
-console.log("🛡️ Airlock Content Script: Initialized");
+console.log("🛡️ Airlock Content Script: Initialized for one-time messaging.");
 
 const siteConfigs = {
   "chat.openai.com": { textarea: "#prompt-textarea", sendButton: 'button[data-testid="send-button"]' },
@@ -7,22 +7,21 @@ const siteConfigs = {
 };
 
 const boundElements = new WeakSet();
-let modalContainer = null; // To hold the modal
-let port = null; // Port for persistent connection
+let modalContainer = null;
 
-// --- MODAL LOGIC START ---
+// --- MODAL LOGIC (UNCHANGED) START ---
 function showModal(decision, reasons, callback) {
-  if (modalContainer) return; // Modal already shown
+    if (modalContainer) return;
 
-  modalContainer = document.createElement("div");
-  modalContainer.id = "airlock-modal-container";
+    modalContainer = document.createElement("div");
+    modalContainer.id = "airlock-modal-container";
 
-  const isBlock = decision === "block";
-  const title = isBlock ? "Airlock Blocked Prompt" : "Airlock Detected Data";
-  const titleClass = isBlock ? "" : "redact";
-  const primaryButtonText = isBlock ? "Okay" : "Send Redacted";
+    const isBlock = decision === "block";
+    const title = isBlock ? "Airlock Blocked Prompt" : "Airlock Detected Data";
+    const titleClass = isBlock ? "" : "redact";
+    const primaryButtonText = isBlock ? "Okay" : "Send Redacted";
 
-  let modalHTML = `
+    let modalHTML = `
     <div class="airlock-modal">
       <div class="airlock-modal-title ${titleClass}">${title}</div>
       <div class="airlock-modal-content">
@@ -37,183 +36,177 @@ function showModal(decision, reasons, callback) {
       </div>
     </div>
   `;
-  modalContainer.innerHTML = modalHTML;
-  document.body.appendChild(modalContainer);
+    modalContainer.innerHTML = modalHTML;
+    document.body.appendChild(modalContainer);
 
-  const closeModal = (result) => {
-    document.body.removeChild(modalContainer);
-    modalContainer = null;
-    callback(result);
-  };
+    const closeModal = (result) => {
+        document.body.removeChild(modalContainer);
+        modalContainer = null;
+        callback(result);
+    };
 
-  document.getElementById("airlock-confirm").addEventListener("click", () => closeModal(true));
-  if (!isBlock) {
-    document.getElementById("airlock-cancel").addEventListener("click", () => closeModal(false));
-  }
+    document.getElementById("airlock-confirm").addEventListener("click", () => closeModal(true));
+    if (!isBlock) {
+        document.getElementById("airlock-cancel").addEventListener("click", () => closeModal(false));
+    }
 }
 
 function injectCSS() {
-  const cssUrl = chrome.runtime.getURL("content-scripts/modal.css");
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.type = "text/css";
-  link.href = cssUrl;
-  document.head.appendChild(link);
-  console.log("Airlock: Modal CSS injected.");
+    const cssUrl = chrome.runtime.getURL("content-scripts/modal.css");
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.type = "text/css";
+    link.href = cssUrl;
+    document.head.appendChild(link);
+    console.log("Airlock: Modal CSS injected.");
 }
+// --- MODAL LOGIC (UNCHANGED) END ---
 
-
-// --- MODAL LOGIC END ---
-
+// --- INTERCEPTION AND MESSAGING LOGIC (REFACTORED) ---
 function handleIntercept(event, config, source) {
-  if (window.__airlockBypassOnce) {
-    window.__airlockBypassOnce = false;
-    return;
-  }
-  if (event.type === "keydown" && (event.key !== "Enter" || event.shiftKey)) return;
+    if (window.__airlockBypassOnce) {
+        window.__airlockBypassOnce = false;
+        return;
+    }
+    if (event.type === "keydown" && (event.key !== "Enter" || event.shiftKey)) return;
 
-  event.preventDefault();
-  event.stopImmediatePropagation();
-  event.stopPropagation();
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    event.stopPropagation();
 
-  const textarea = document.querySelector(config.textarea);
-  const sendButton = document.querySelector(config.sendButton);
-
-  if (!textarea) return;
-
-  const promptText = (textarea.value !== undefined ? textarea.value : textarea.innerText || "").trim();
-
-  if (!promptText) {
-    return;
-  }
-
-  textarea.disabled = true;
-  if (sendButton) sendButton.disabled = true;
-
-  port.postMessage({
-      type: "AIRLOCK_ANALYZE",
-      url: window.location.href,
-      host: window.location.hostname,
-      promptText,
-      source
-  });
-}
-
-function handleDecision(response, textarea, sendButton) {
-  const { decision, reasons, redactedText } = response;
-
-  const enableUI = () => {
-    textarea.disabled = false;
-    if (sendButton) sendButton.disabled = false;
-  };
-
-  if (decision === "block" || decision === "redact") {
-    showModal(decision, reasons, (ok) => {
-        if (!ok) {
-            enableUI();
-            return;
-        }
-
-        if (decision === "redact"){
-            const newText = redactedText || (textarea.value !== undefined ? textarea.value : textarea.innerText);
-            if (textarea.value !== undefined) {
-                textarea.value = newText;
-            } else {
-                textarea.innerText = newText;
-            }
-        }
-
-        if(decision === "block"){
-            enableUI();
-            return;
-        }
-
-        programmaticSubmit(textarea, sendButton);
-    });
-  } else { // allow
-    programmaticSubmit(textarea, sendButton);
-  }
-}
-
-function programmaticSubmit(textarea, sendButton) {
-  window.__airlockBypassOnce = true;
-  textarea.disabled = false;
-  if (sendButton) sendButton.disabled = false;
-
-  if (sendButton) {
-    setTimeout(() => {
-        sendButton.click();
-    }, 50);
-  } else {
-    const enterEvent = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
-    textarea.dispatchEvent(enterEvent);
-  }
-}
-
-function initializeAirlockForSite() {
-  const host = window.location.hostname;
-  const config = siteConfigs[host];
-  if (!config) return;
-
-  injectCSS();
-
-  console.log(`Airlock: Initializing poller for ${host}`);
-  let attempts = 0;
-
-  const intervalId = setInterval(() => {
-    attempts++;
     const textarea = document.querySelector(config.textarea);
     const sendButton = document.querySelector(config.sendButton);
 
-    if (textarea && !boundElements.has(textarea)) {
-      textarea.addEventListener("keydown", (e) => handleIntercept(e, config, "enter"), { capture: true });
-      boundElements.add(textarea);
+    if (!textarea) return;
+
+    const promptText = (textarea.value !== undefined ? textarea.value : textarea.innerText || "").trim();
+
+    if (!promptText) {
+        return;
     }
 
-    if (sendButton && !boundElements.has(sendButton)) {
-      sendButton.addEventListener("click", (e) => handleIntercept(e, config, "click"), { capture: true });
-      boundElements.add(sendButton);
-    }
+    console.log("Airlock: Intercepted prompt. Disabling UI and sending for analysis.");
+    textarea.disabled = true;
+    if (sendButton) sendButton.disabled = true;
 
-    if ((textarea && sendButton) || attempts > 20) {
-      clearInterval(intervalId);
-    }
-  }, 500);
-}
+    const request = {
+        type: "AIRLOCK_ANALYZE",
+        url: window.location.href,
+        host: window.location.hostname,
+        promptText,
+        source
+    };
 
-function connect() {
-    port = chrome.runtime.connect({ name: "airlock-content-script" });
+    // Use one-time messaging
+    chrome.runtime.sendMessage(request, (response) => {
+        if (chrome.runtime.lastError) {
+            console.error("Airlock: Message failed:", chrome.runtime.lastError.message);
+            // Re-enable UI on failure
+            textarea.disabled = false;
+            if (sendButton) sendButton.disabled = false;
+            return;
+        }
 
-    port.onMessage.addListener((response) => {
-        const textarea = document.querySelector(siteConfigs[window.location.hostname]?.textarea);
-        const sendButton = document.querySelector(siteConfigs[window.location.hostname]?.sendButton);
-
-        if (response.type === "ANALYSIS_RESULT") {
-            if (!response.decision) {
-                console.error("Airlock: Analysis request failed or received invalid response.");
-                if(textarea) textarea.disabled = false;
-                if(sendButton) sendButton.disabled = false;
-                return;
-            }
+        if (response && response.type === "ANALYSIS_RESULT") {
             handleDecision(response, textarea, sendButton);
-        } else if (response.type === "ACKNOWLEDGE") {
-             console.log(`Airlock: Handshake Acknowledged. Version: ${response.version}`);
-             initializeAirlockForSite();
+        } else {
+            console.error("Airlock: Received invalid response from service worker.", response);
+            textarea.disabled = false;
+            if (sendButton) sendButton.disabled = false;
         }
     });
-
-    port.onDisconnect.addListener(() => {
-        console.log("Airlock: Port disconnected. Attempting to reconnect...");
-        port = null;
-        setTimeout(connect, 1000); // Reconnect after a delay
-    });
-
-    port.postMessage({ type: "HANDSHAKE", status: "READY", url: window.location.href });
 }
 
+function handleDecision(response, textarea, sendButton) {
+    const { decision, reasons, redactedText } = response;
 
+    const enableUI = () => {
+        textarea.disabled = false;
+        if (sendButton) sendButton.disabled = false;
+    };
+
+    if (decision === "block" || decision === "redact") {
+        showModal(decision, reasons, (ok) => {
+            if (!ok) { // User clicked cancel
+                enableUI();
+                return;
+            }
+
+            if (decision === "redact") {
+                const newText = redactedText || (textarea.value !== undefined ? textarea.value : textarea.innerText);
+                if (textarea.value !== undefined) {
+                    textarea.value = newText;
+                } else {
+                    textarea.innerText = newText;
+                }
+            }
+
+            if (decision === "block") { // User clicked "Okay" on a block
+                enableUI();
+                return;
+            }
+            
+            // If we are here, it means it was a redaction and user clicked "Send Redacted"
+            programmaticSubmit(textarea, sendButton);
+        });
+    } else { // allow
+        programmaticSubmit(textarea, sendButton);
+    }
+}
+
+function programmaticSubmit(textarea, sendButton) {
+    window.__airlockBypassOnce = true;
+    textarea.disabled = false;
+    if (sendButton) sendButton.disabled = false;
+
+    if (sendButton) {
+        setTimeout(() => {
+            sendButton.click();
+        }, 50);
+    } else {
+        const enterEvent = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+        textarea.dispatchEvent(enterEvent);
+    }
+}
+
+// --- INITIALIZATION LOGIC (REFACTORED) ---
+function initializeAirlockForSite() {
+    const host = window.location.hostname;
+    const config = siteConfigs[host];
+    if (!config) return;
+
+    injectCSS();
+
+    console.log(`Airlock: Initializing poller for ${host}`);
+    let attempts = 0;
+
+    const intervalId = setInterval(() => {
+        attempts++;
+        const textarea = document.querySelector(config.textarea);
+        const sendButton = document.querySelector(config.sendButton);
+
+        if (textarea && !boundElements.has(textarea)) {
+            console.log("Airlock: Attaching listener to textarea.");
+            textarea.addEventListener("keydown", (e) => handleIntercept(e, config, "enter"), { capture: true });
+            boundElements.add(textarea);
+        }
+
+        if (sendButton && !boundElements.has(sendButton)) {
+            console.log("Airlock: Attaching listener to send button.");
+            sendButton.addEventListener("click", (e) => handleIntercept(e, config, "click"), { capture: true });
+            boundElements.add(sendButton);
+        }
+
+        if ((textarea && sendButton) || attempts > 20) {
+            if(attempts > 20) console.warn("Airlock: Polling timed out. Some elements may not be hooked.");
+            clearInterval(intervalId);
+        }
+    }, 500);
+}
+
+// Start initialization when the DOM is ready.
 if (document.readyState === "interactive" || document.readyState === "complete") {
-  connect();
+    initializeAirlockForSite();
 } else {
-  window.addEventListener("DOMContentLoaded", connect, { once: true });
+    window.addEventListener("DOMContentLoaded", initializeAirlockForSite, { once: true });
 }

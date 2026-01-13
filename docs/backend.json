@@ -1,0 +1,205 @@
+{
+  "entities": {
+    "EventLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "EventLog",
+      "type": "object",
+      "description": "Represents a log of events captured by the Airlock DLP extension.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the event log entry."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of when the event occurred.",
+          "format": "date-time"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain where the event originated from."
+        },
+        "types": {
+          "type": "array",
+          "description": "An array of sensitive data types detected in the event.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "action": {
+          "type": "string",
+          "description": "Action taken by the user or the extension (e.g., block, warn, bypass)."
+        },
+        "mode": {
+          "type": "string",
+          "description": "Operating mode of the extension (e.g., strict, soft)."
+        },
+        "bypassUsed": {
+          "type": "boolean",
+          "description": "Indicates whether the bypass mechanism was used for this event."
+        },
+        "userIdHash": {
+          "type": "string",
+          "description": "Hashed user ID for aggregate analysis (optional)."
+        },
+        "leakTypes": {
+          "type": "array",
+          "description": "Types of data leaks detected (optional).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "riskScore": {
+          "type": "number",
+          "description": "Risk score associated with the event (optional)."
+        }
+      },
+      "required": [
+        "id",
+        "timestamp",
+        "domain",
+        "types",
+        "action",
+        "mode",
+        "bypassUsed"
+      ]
+    },
+    "Rule": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Rule",
+      "type": "object",
+      "description": "Represents a rule for detecting sensitive data.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the rule."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the rule."
+        },
+        "regex": {
+          "type": "string",
+          "description": "Regular expression for detecting sensitive data."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the rule."
+        },
+        "severity": {
+          "type": "string",
+          "description": "Severity level of the rule (e.g., high, medium, low)."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "regex",
+        "description",
+        "severity"
+      ]
+    },
+    "DomainAllowList": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DomainAllowList",
+      "type": "object",
+      "description": "Represents a list of domains that are allowed to bypass DLP checks.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the domain allow list entry."
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain name to be allowed."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description or reason for allowing the domain."
+        }
+      },
+      "required": [
+        "id",
+        "domain",
+        "description"
+      ]
+    },
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Stores public-facing information about a user.",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's unique ID from Firebase Authentication."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's primary email address."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's chosen display name."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the user profile was created."
+        }
+      },
+      "required": ["uid", "email", "createdAt"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/event_logs/{eventLogId}",
+        "definition": {
+          "entityName": "EventLog",
+          "schema": {
+            "$ref": "#/backend/entities/EventLog"
+          },
+          "description": "Stores event log entries captured by the Airlock DLP extension."
+        }
+      },
+      {
+        "path": "/rules/{ruleId}",
+        "definition": {
+          "entityName": "Rule",
+          "schema": {
+            "$ref": "#/backend/entities/Rule"
+          },
+          "description": "Stores rules for detecting sensitive data."
+        }
+      },
+      {
+        "path": "/domain_allow_list/{domainAllowListId}",
+        "definition": {
+          "entityName": "DomainAllowList",
+          "schema": {
+            "$ref": "#/backend/entities/DomainAllowList"
+          },
+          "description": "Stores a list of domains that are allowed to bypass DLP checks."
+        }
+      },
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile information."
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support the Airlock DLP application's core features, including event logging, rule management, and domain allowlisting. The structure prioritizes authorization independence, clarity, and scalability. Event logs are stored in a dedicated collection, and rules and domain allowlists are stored in their respective collections. To facilitate secure list operations (QAPs), all documents within a collection share the same security requirements, avoiding the need for complex filtering within the rules. Authorization independence is achieved by relying solely on `request.auth.uid` for access control and avoiding hierarchical authorization dependencies. Because only metadata is being logged and there is no user-specific configuration, all rules are globally accessible. This design ensures that security rules are straightforward and easy to debug."
+  }
+}

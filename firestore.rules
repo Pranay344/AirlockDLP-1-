@@ -1,0 +1,40 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    match /users/{userId} {
+      // Users can create their own profile upon signup
+      allow create: if request.auth.uid == userId;
+      // Anyone can read user profiles (e.g., for display names)
+      allow read: if isSignedIn();
+      // Users can only update their own profile
+      allow update: if request.auth.uid == userId;
+    }
+
+    match /event_logs/{eventLogId} {
+      // Any authenticated user (including browser extensions with a user session) can write logs
+      allow write: if isSignedIn();
+      // Any authenticated user can read the logs for the dashboard
+      allow read: if isSignedIn();
+    }
+
+    match /rules/{ruleId} {
+      // Any authenticated user can write rules (e.g., from the settings page)
+      allow write: if isSignedIn();
+      // Any authenticated user can read rules
+      allow read: if isSignedIn();
+    }
+
+    match /domain_allow_list/{domainAllowListId} {
+      // Any authenticated user can write to the allow list
+      allow write: if isSignedIn();
+      // Any authenticated user can read the allow list
+      allow read: if isSignedIn();
+    }
+  }
+}
