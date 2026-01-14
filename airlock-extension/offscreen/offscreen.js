@@ -1,41 +1,44 @@
-console.log("🎬 Offscreen Document: Initializing.");
 
-// This script is designed to handle one-off connections for a single analysis.
+console.log("Offscreen document created.");
 
-chrome.runtime.onConnect.addListener((port) => {
-    console.assert(port.name === "service-worker-offscreen-connect");
-    console.log("🎬 Offscreen: Service Worker connected for a single job.");
+// The NER worker is loaded relative to this offscreen document.
+// We specify { type: 'module' } to allow the worker to use import statements.
+const nerWorker = new Worker('../workers/ner-worker.js', { type: 'module' });
 
-    const nerWorker = new Worker('../workers/ner-worker.js');
+// --- Message forwarding from Service Worker to NER Worker ---
+// This listener handles all messages from the service worker.
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // Only process messages intended for this offscreen document.
+    if (message.target !== 'offscreen-document') {
+        // Return false for messages not meant for this listener.
+        return false;
+    }
 
-    // 1. Listen for messages from the NER worker
-    nerWorker.onmessage = (event) => {
-        // Got the result, send it back and close the connection.
-        console.log("🎬 Offscreen: NER worker finished. Relaying result and disconnecting.");
-        port.postMessage(event.data);
-        port.disconnect(); 
-    };
+    console.log("Offscreen: Received message from SW, forwarding to NER worker:", message.data);
 
-    nerWorker.onerror = (error) => {
-        console.error("🎬 Offscreen: NER Worker Error!", error);
-        // If the worker fails, we should still disconnect to signal failure.
-        port.disconnect();
-    };
-
-    // 2. Listen for the single message from the service worker
-    port.onMessage.addListener((message) => {
-        if (message.target === 'offscreen') {
-            console.log("🎬 Offscreen: Received text from Service Worker, starting NER worker.");
-            nerWorker.postMessage(message.data);
-        } else {
-             console.warn("🎬 Offscreen: Received unexpected message target:", message.target);
+    // This is the core of the fix to prevent race conditions.
+    // Create a temporary, one-time listener for the worker's response.
+    const oneShotListener = (event) => {
+        console.log("Offscreen: Received result from NER worker, sending back to SW:", event.data);
+        
+        // Fulfill the promise in the service worker that is waiting for this specific result.
+        try {
+            sendResponse(event.data);
+        } catch (error) {
+            // This can happen if the original message channel was closed for some reason.
+            console.warn("Offscreen: Could not send response. The message channel might be closed.", error);
         }
-    });
+        
+        // IMPORTANT: Clean up the listener to prevent it from being called again for other messages.
+        nerWorker.removeEventListener('message', oneShotListener);
+    };
 
-    // 3. Clean up when the connection is closed by either party
-    port.onDisconnect.addListener(() => {
-        console.log("🎬 Offscreen: Port disconnected. Terminating NER worker.");
-        nerWorker.terminate();
-        // The service worker will call `closeDocument`, so we don't need to do it here.
-    });
+    // Add the dedicated listener for the upcoming response from the worker.
+    nerWorker.addEventListener('message', oneShotListener);
+
+    // Now, forward the data to the worker to start the analysis.
+    nerWorker.postMessage({ text: message.data });
+
+    // Return true to let the browser know that sendResponse will be called asynchronously.
+    return true;
 });
