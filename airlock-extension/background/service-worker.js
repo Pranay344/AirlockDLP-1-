@@ -86,25 +86,55 @@ async function performNerAnalysis(text) {
 
 // CORRECTED REDACTION LOGIC
 function redactText(text, findings) {
-    let redactedText = text;
-    const uniqueFindings = [];
-    const seenMatches = new Set();
+    if (!findings || findings.length === 0) {
+        return text;
+    }
 
+    // 1. Convert findings to a flat list of non-overlapping intervals
+    const intervals = [];
     for (const finding of findings) {
-        if (finding.matchedText && !seenMatches.has(finding.matchedText)) {
-            uniqueFindings.push(finding);
-            seenMatches.add(finding.matchedText);
+        const escapedText = finding.matchedText.replace(/[.*+?^${}()|[\]\/]/g, '\\$&');
+        const regex = new RegExp(escapedText, 'g');
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            intervals.push({ 
+                start: match.index, 
+                end: match.index + match[0].length, 
+                type: finding.type 
+            });
         }
     }
 
-    uniqueFindings.sort((a, b) => b.matchedText.length - a.matchedText.length);
+    if (intervals.length === 0) return text;
 
-    for (const { matchedText, type } of uniqueFindings) {
-        const escapedText = matchedText.replace(/[.*+?^${}()|[\]\/]/g, '\\$&');
-        const regex = new RegExp(escapedText, 'g');
-        const redactionTag = `[REDACTED_${(type || 'ENTITY').toUpperCase()}]`;
-        redactedText = redactedText.replace(regex, redactionTag);
+    // 2. Sort intervals by start index and merge overlapping intervals
+    intervals.sort((a, b) => a.start - b.start);
+
+    const mergedIntervals = [];
+    let currentInterval = intervals[0];
+
+    for (let i = 1; i < intervals.length; i++) {
+        const nextInterval = intervals[i];
+        if (nextInterval.start < currentInterval.end) {
+            // Overlap detected, merge by taking the larger interval
+            currentInterval.end = Math.max(currentInterval.end, nextInterval.end);
+            // Optionally, combine types if needed, here we just keep the first one
+        } else {
+            mergedIntervals.push(currentInterval);
+            currentInterval = nextInterval;
+        }
     }
+    mergedIntervals.push(currentInterval);
+
+    // 3. Rebuild the string from the intervals
+    let redactedText = '';
+    let lastIndex = 0;
+    for (const interval of mergedIntervals) {
+        redactedText += text.substring(lastIndex, interval.start);
+        redactedText += `[REDACTED_${(interval.type || 'ENTITY').toUpperCase()}]`;
+        lastIndex = interval.end;
+    }
+    redactedText += text.substring(lastIndex);
 
     return redactedText;
 }
