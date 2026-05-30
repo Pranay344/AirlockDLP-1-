@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+    <div class="head">
+        <div class="brand"><span>🛡️</span> Airlock</div>
+        <div class="status" id="status"><span class="dot" id="dot"></span><span id="status-text">Not connected</span></div>
+    </div>
+
+    <div class="body">
+        <label class="field">
+            <span>Work email</span>
+            <input type="email" id="email" placeholder="you@company.com" />
+        </label>
+        <label class="field">
+            <span>Organization code</span>
+            <input type="text" id="orgCode" placeholder="ABCD1234" maxlength="8" />
+        </label>
+        <label class="field">
+            <span>Department</span>
+            <select id="department"><option value="">General</option></select>
+        </label>
+        <label class="field">
+            <span>Backend URL</span>
+            <input type="text" id="backendUrl" placeholder="http://localhost:4000" />
+        </label>
+
+        <button id="save" class="btn">Save &amp; Connect</button>
+        <div class="msg" id="msg"></div>
+
+        <div class="toggles-view" id="toggles-view" style="display:none;">
+            <div class="toggles-title">Active policy (set by your admin)</div>
+            <ul id="toggles-list"></ul>
+        </div>
+    </div>
+</body>
+<script src="popup.js"></script>
+</html>

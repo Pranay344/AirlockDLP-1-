@@ -1,0 +1,43 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    width: 320px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: hsl(222, 47%, 11%);
+    color: hsl(210, 40%, 96%);
+}
+.head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px; border-bottom: 1px solid hsl(215, 28%, 28%);
+}
+.brand { font-weight: 700; font-size: 1.1rem; }
+.status { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: hsl(210, 16%, 66%); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: hsl(0, 72%, 58%); }
+.dot.ok { background: hsl(142, 71%, 45%); }
+.dot.pending { background: hsl(38, 92%, 55%); }
+
+.body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field span { font-size: 0.75rem; color: hsl(210, 16%, 66%); font-weight: 600; }
+.field input, .field select {
+    background: hsl(222, 47%, 8%);
+    border: 1px solid hsl(215, 28%, 28%);
+    border-radius: 7px; padding: 9px 10px;
+    color: hsl(210, 40%, 96%); font-size: 0.9rem;
+}
+.field input:focus, .field select:focus { outline: none; border-color: hsl(217, 91%, 60%); }
+#orgCode { text-transform: uppercase; letter-spacing: 1px; }
+.btn {
+    background: hsl(217, 91%, 60%); color: white; border: none;
+    border-radius: 7px; padding: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); }
+.msg { font-size: 0.8rem; min-height: 1.1em; }
+.msg.ok { color: hsl(142, 71%, 55%); }
+.msg.err { color: hsl(0, 72%, 62%); }
+
+.toggles-view { border-top: 1px solid hsl(215, 28%, 28%); padding-top: 12px; }
+.toggles-title { font-size: 0.72rem; color: hsl(210, 16%, 66%); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+#toggles-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+#toggles-list li { display: flex; justify-content: space-between; font-size: 0.82rem; }
+.tag-on { color: hsl(142, 71%, 55%); font-weight: 600; }
+.tag-off { color: hsl(0, 72%, 62%); font-weight: 600; }

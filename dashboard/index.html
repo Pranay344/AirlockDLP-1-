@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Airlock — Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <!-- AUTH SCREEN -->
+    <div id="auth-screen" class="auth-screen">
+        <div class="auth-card">
+            <div class="brand"><span class="shield">🛡️</span> Airlock</div>
+            <div class="auth-subtitle">AI Compliance &amp; DLP — Admin Console</div>
+            <div class="tabs">
+                <button id="tab-login" class="tab active">Log in</button>
+                <button id="tab-signup" class="tab">Sign up</button>
+            </div>
+            <form id="auth-form" class="auth-form">
+                <label class="field" id="field-orgname" style="display:none;">
+                    <span>Organization name</span>
+                    <input type="text" id="orgName" placeholder="Acme Corp" autocomplete="organization" />
+                </label>
+                <label class="field"><span>Email</span><input type="email" id="email" placeholder="admin@acme.io" autocomplete="email" required /></label>
+                <label class="field"><span>Password</span><input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required /></label>
+                <div id="auth-error" class="auth-error"></div>
+                <button type="submit" id="auth-submit" class="btn-primary">Log in</button>
+            </form>
+            <div id="orgcode-callout" class="orgcode-callout" style="display:none;">
+                <div class="orgcode-label">Your organization code</div>
+                <div class="orgcode-value" id="orgcode-value">--------</div>
+                <div class="orgcode-hint">Give this to employees — they enter it in the Airlock extension popup to connect.</div>
+                <button id="orgcode-continue" class="btn-primary">Go to dashboard</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP SHELL -->
+    <div id="dashboard-screen" class="app-shell" style="display:none;">
+        <aside class="sidebar">
+            <div class="brand-sm"><span class="shield">🛡️</span> Airlock</div>
+            <nav class="nav">
+                <button class="nav-item active" data-view="dashboard"><span class="nav-ico">▦</span> Dashboard</button>
+                <button class="nav-item" data-view="people"><span class="nav-ico">◔</span> People</button>
+                <button class="nav-item" data-view="reports"><span class="nav-ico">▤</span> Reports</button>
+                <button class="nav-item" data-view="rules"><span class="nav-ico">⛨</span> Rules</button>
+                <button class="nav-item" data-view="settings"><span class="nav-ico">⚙</span> Settings</button>
+                <button class="nav-item" data-view="contact"><span class="nav-ico">✉</span> Contact Us</button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="org-block">
+                    <div class="org-name" id="sb-org">Org</div>
+                    <div class="org-code-chip">Code: <strong id="sb-orgcode">--------</strong></div>
+                </div>
+                <button id="logout-btn" class="btn-ghost">Log out</button>
+            </div>
+        </aside>
+
+        <main class="main-area">
+            <!-- DASHBOARD -->
+            <section class="view active" data-view-panel="dashboard">
+                <div class="view-head">
+                    <div>
+                        <h1 class="view-title">Dashboard</h1>
+                        <p class="view-sub">Organization-wide activity · live</p>
+                    </div>
+                    <div class="live-pill"><span class="live-dot"></span> Live</div>
+                </div>
+
+                <div class="cards">
+                    <div class="card accent-blue"><div class="card-top"><div class="card-label">Prompts Analyzed</div><div class="card-ico">▦</div></div><div class="card-value" id="stat-prompts">0</div></div>
+                    <div class="card accent-amber"><div class="card-top"><div class="card-label">Redactions</div><div class="card-ico">⊘</div></div><div class="card-value" id="stat-redactions">0</div></div>
+                    <div class="card accent-red"><div class="card-top"><div class="card-label">Blocks</div><div class="card-ico">⛔</div></div><div class="card-value" id="stat-blocks">0</div></div>
+                    <div class="card accent-green"><div class="card-top"><div class="card-label">Tokens Saved</div><div class="card-ico">⚡</div></div><div class="card-value" id="stat-tokens">0</div><div class="card-sub" id="stat-cost">≈ $0.00 saved</div></div>
+                </div>
+
+                <section class="panel">
+                    <div class="panel-head"><h2>Activity — last 14 days</h2><span class="panel-hint" id="activity-hint"></span></div>
+                    <div class="chart-wrap chart-tall"><canvas id="chart-activity"></canvas></div>
+                </section>
+
+                <div class="grid">
+                    <section class="panel">
+                        <h2>Decision Breakdown</h2>
+                        <div class="chart-wrap chart-donut"><canvas id="chart-decisions"></canvas></div>
+                    </section>
+                    <section class="panel">
+                        <h2>Detection Categories</h2>
+                        <div class="chart-wrap chart-donut"><canvas id="chart-categories"></canvas></div>
+                    </section>
+                </div>
+
+                <section class="panel">
+                    <h2>Activity by Department</h2>
+                    <table class="data-table" id="dept-table">
+                        <thead><tr><th>Department</th><th>Prompts</th><th>Redactions</th><th>Blocks</th><th>Tokens Saved</th></tr></thead>
+                        <tbody id="dept-tbody"><tr><td colspan="5" class="empty">No activity yet.</td></tr></tbody>
+                    </table>
+                </section>
+
+                <section class="panel">
+                    <h2>Recent Activity</h2>
+                    <div class="feed" id="activity-feed"><div class="empty">No activity yet.</div></div>
+                </section>
+            </section>
+
+            <!-- PEOPLE -->
+            <section class="view" data-view-panel="people">
+                <div class="view-head"><div><h1 class="view-title">People</h1><p class="view-sub">Per-employee activity. Click a row for that person's detail.</p></div></div>
+
+                <section class="panel">
+                    <h2>Top Employees by Prompts</h2>
+                    <div class="chart-wrap chart-mid"><canvas id="chart-employees"></canvas></div>
+                </section>
+
+                <div class="grid">
+                    <section class="panel">
+                        <h2>Employees</h2>
+                        <table class="data-table" id="employee-table">
+                            <thead><tr><th>Employee</th><th>Prompts</th><th>Redactions</th><th>Tokens</th></tr></thead>
+                            <tbody id="employee-tbody"><tr><td colspan="4" class="empty">No activity yet.</td></tr></tbody>
+                        </table>
+                    </section>
+                    <section class="panel">
+                        <h2 id="person-detail-title">Select an employee</h2>
+                        <div id="person-detail" class="feed"><div class="empty">Click an employee to see their recent activity.</div></div>
+                    </section>
+                </div>
+            </section>
+
+            <!-- REPORTS -->
+            <section class="view" data-view-panel="reports">
+                <div class="view-head"><div><h1 class="view-title">Compliance Reports</h1><p class="view-sub">Audit-ready evidence of AI data-handling, mapped to DPDP / GDPR / EU AI Act.</p></div></div>
+
+                <section class="panel no-print">
+                    <div class="report-controls">
+                        <label class="rc-field"><span>From</span><input type="date" id="rep-from" /></label>
+                        <label class="rc-field"><span>To</span><input type="date" id="rep-to" /></label>
+                        <button id="rep-generate" class="btn-primary rc-btn">Generate</button>
+                        <button id="rep-pdf" class="btn-ghost rc-btn" disabled>Export PDF</button>
+                        <button id="rep-csv" class="btn-ghost rc-btn" disabled>Download CSV</button>
+                    </div>
+                    <div class="rc-note" id="rep-note">Pick a range and click Generate.</div>
+                </section>
+
+                <div id="report-doc" class="report-doc" style="display:none;"></div>
+            </section>
+
+            <!-- RULES -->
+            <section class="view" data-view-panel="rules">
+                <div class="view-head"><div><h1 class="view-title">Rules &amp; Departments</h1><p class="view-sub">Define your own DLP rules and scope them per department. Changes reach employees within ~30s.</p></div></div>
+
+                <section class="panel">
+                    <h2>Departments</h2>
+                    <div class="chips" id="dept-chips"></div>
+                    <div class="inline-add">
+                        <input type="text" id="dept-input" placeholder="e.g. Finance" maxlength="40" />
+                        <button id="dept-add" class="btn-ghost">Add department</button>
+                    </div>
+                    <div class="rc-note" id="dept-note"></div>
+                </section>
+
+                <section class="panel">
+                    <h2>Custom Rules</h2>
+                    <table class="data-table" id="rules-table">
+                        <thead><tr><th>Name</th><th>Type</th><th>Pattern</th><th>Action</th><th>Scope</th><th></th></tr></thead>
+                        <tbody id="rules-tbody"><tr><td colspan="6" class="empty">No custom rules yet.</td></tr></tbody>
+                    </table>
+
+                    <div class="rule-form">
+                        <input type="text" id="rule-name" placeholder="Rule name (e.g. Project Atlas)" maxlength="60" />
+                        <select id="rule-type"><option value="keyword">Keyword</option><option value="regex">Regex</option></select>
+                        <input type="text" id="rule-pattern" placeholder="pattern / keyword" maxlength="200" />
+                        <select id="rule-action"><option value="redact">Redact</option><option value="block">Block</option></select>
+                        <select id="rule-dept"><option value="all">All departments</option></select>
+                        <button id="rule-add" class="btn-primary">Add rule</button>
+                    </div>
+                    <div class="rc-note" id="rule-note"></div>
+                </section>
+            </section>
+
+            <!-- SETTINGS -->
+            <section class="view" data-view-panel="settings">
+                <div class="view-head"><div><h1 class="view-title">Settings</h1><p class="view-sub">Org-wide policy. Changes reach employee extensions within ~30 seconds.</p></div></div>
+                <div class="grid">
+                    <section class="panel">
+                        <h2>Feature Controls</h2>
+                        <div class="toggles" id="toggles">
+                            <label class="toggle-row"><span><strong>Token Optimizer</strong><small>Strip filler to cut token cost</small></span><input type="checkbox" data-key="tokenOptimizer" /></label>
+                            <label class="toggle-row"><span><strong>NER Detection</strong><small>Detect names / orgs / locations (BERT)</small></span><input type="checkbox" data-key="nerDetection" /></label>
+                            <label class="toggle-row"><span><strong>Reinjection</strong><small>Restore redacted values in AI replies</small></span><input type="checkbox" data-key="reinjection" /></label>
+                            <div class="toggle-divider">Redaction categories</div>
+                            <label class="toggle-row"><span><strong>PII</strong><small>Email, phone, SSN, Aadhaar, PAN, cards</small></span><input type="checkbox" data-cat="pii" /></label>
+                            <label class="toggle-row"><span><strong>Secrets</strong><small>AWS, GitHub, Stripe, Slack, JWT…</small></span><input type="checkbox" data-cat="secrets" /></label>
+                            <label class="toggle-row"><span><strong>Financial</strong><small>IBAN, bank accounts, routing, CVV</small></span><input type="checkbox" data-cat="financial" /></label>
+                            <label class="toggle-row"><span><strong>Medical</strong><small>ICD-9 / ICD-10 codes</small></span><input type="checkbox" data-cat="medical" /></label>
+                            <div class="toggle-divider">Smart block (hard-stop + safe-rewrite suggestion)</div>
+                            <label class="toggle-row"><span><strong>Block: PII</strong><small>Hard-block instead of silently redacting</small></span><input type="checkbox" data-block="pii" /></label>
+                            <label class="toggle-row"><span><strong>Block: Secrets</strong><small>Recommended ON — credentials should never be sent</small></span><input type="checkbox" data-block="secrets" /></label>
+                            <label class="toggle-row"><span><strong>Block: Financial</strong><small>Hard-block financial identifiers</small></span><input type="checkbox" data-block="financial" /></label>
+                            <label class="toggle-row"><span><strong>Block: Medical</strong><small>Hard-block medical codes</small></span><input type="checkbox" data-block="medical" /></label>
+                        </div>
+                        <div class="toggle-saved" id="toggle-saved"></div>
+                    </section>
+                    <section class="panel">
+                        <h2>Organization</h2>
+                        <div class="setting-row"><span class="setting-label">Organization</span><span class="setting-value" id="set-org">—</span></div>
+                        <div class="setting-row"><span class="setting-label">Admin</span><span class="setting-value" id="set-email">—</span></div>
+                        <div class="setting-row"><span class="setting-label">Org code</span><span class="setting-value code" id="set-orgcode">—</span></div>
+                        <p class="setting-hint">Share the org code with employees. They enter it in the Airlock extension popup (work email + code) to connect their activity to this organization.</p>
+                    </section>
+                </div>
+            </section>
+
+            <!-- CONTACT -->
+            <section class="view" data-view-panel="contact">
+                <div class="view-head"><div><h1 class="view-title">Contact Us</h1><p class="view-sub">Questions, enterprise onboarding, or a security review — we'll get back fast.</p></div></div>
+                <div class="grid">
+                    <section class="panel">
+                        <h2>Get in touch</h2>
+                        <form id="contact-form" class="contact-form">
+                            <label class="field"><span>Your name</span><input type="text" id="c-name" placeholder="Jane Doe" required /></label>
+                            <label class="field"><span>Your email</span><input type="email" id="c-email" placeholder="jane@company.com" required /></label>
+                            <label class="field"><span>Message</span><textarea id="c-message" rows="5" placeholder="How can we help?" required></textarea></label>
+                            <button type="submit" class="btn-primary">Send message</button>
+                            <div class="contact-note" id="contact-note"></div>
+                        </form>
+                    </section>
+                    <section class="panel">
+                        <h2>Airlock</h2>
+                        <div class="contact-info">
+                            <div class="contact-line"><span>Support</span><a href="mailto:support@airlock.com">support@airlock.com</a></div>
+                            <div class="contact-line"><span>Sales / Enterprise</span><a href="mailto:sales@airlock.com">sales@airlock.com</a></div>
+                            <div class="contact-line"><span>Security</span><a href="mailto:security@airlock.com">security@airlock.com</a></div>
+                        </div>
+                        <p class="setting-hint">Airlock is an in-browser AI compliance &amp; DLP layer — sensitive data is detected, redacted, and reinjected entirely on-device. Only privacy-safe metadata reaches this dashboard.</p>
+                    </section>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="vendor/chart.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

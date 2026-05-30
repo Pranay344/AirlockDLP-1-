@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+server/node_modules/
+
+# Local databases (NEVER commit — contain user credentials)
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Environment
+.env
+.env.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+
+# Private business docs (kept local; this is a public repo)
+AIRLOCK_STRATEGY.md
